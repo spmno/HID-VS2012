@@ -23,7 +23,7 @@ extern "C" {
 /* Private define ------------------------------------------------------------*/
 #define     USB_VID			0x0483	//这个值在单片机程序的设备描述符中定义 
 #define     USB_PID			0x5750	//这个值在单片机程序的设备描述符中定义   
-#define		REPORT_COUNT	64		//端点长度
+#define		REPORT_COUNT	1000		//端点长度
 /* Private function prototypes -----------------------------------------------*/
 HANDLE OpenMyHIDDevice(int overlapped);
 void HIDSampleFunc() ;
@@ -49,20 +49,23 @@ int _tmain(int argc, _TCHAR* argv[])
 void HIDSampleFunc(void)   
 {       
 	HANDLE       hDev;       
-	BYTE         recvDataBuf[1024],reportBuf[1024];;                   
+	BYTE         recvDataBuf[REPORT_COUNT],reportBuf[REPORT_COUNT];;                   
 	DWORD        bytes;       
 	hDev = OpenMyHIDDevice(0); // 打开设备，不使用重叠（异步）方式 ;      
 	if (hDev == INVALID_HANDLE_VALUE){           
 		printf("INVALID_HANDLE_VALUE\n");
 		return;  
 	}
-	reportBuf[0] = 0; // 输出报告的报告 ID 是 0      
+	    
 	for(int i=0;i<REPORT_COUNT;i++){
 		reportBuf[i+1]=i+1;//将数据存放在数据缓冲区
 	}
+	reportBuf[0] = 0; // 输出报告的报告 ID 是 0  
+
 	printf("开始写数据到设备...\n");
 	// 写入数据到设备，注意，第三个参数值必须为REPORT_COUNT+1，否则会返回1784错误
-	if (!WriteFile(hDev, reportBuf, REPORT_COUNT+1, &bytes, NULL)){           
+	int count = 0;
+	if (!WriteFile(hDev, reportBuf, 23, &bytes, NULL)){           
 		printf("write data error! %d\n",GetLastError());
 		return;    
 	}else{
@@ -106,6 +109,7 @@ HANDLE OpenMyHIDDevice(int overlapped)
 	{           
 		if (SetupDiEnumInterfaceDevice (hDevInfo,0,&hidGuid,deviceNo,&devInfoData))
 		{               
+			deviceNo++;
 			ULONG  requiredLength = 0;               
 			SetupDiGetInterfaceDeviceDetail(hDevInfo,
 				&devInfoData,
@@ -123,8 +127,7 @@ HANDLE OpenMyHIDDevice(int overlapped)
 				NULL))
 			{                   
 				free(devDetail);                   
-				SetupDiDestroyDeviceInfoList(hDevInfo);                   
-				return INVALID_HANDLE_VALUE;               
+				continue;               
 			}               
 			if (overlapped)               
 			{                   
@@ -149,9 +152,9 @@ HANDLE OpenMyHIDDevice(int overlapped)
 			free(devDetail);               
 			if (hidHandle==INVALID_HANDLE_VALUE)
 			{                   
-				SetupDiDestroyDeviceInfoList(hDevInfo);
+				//SetupDiDestroyDeviceInfoList(hDevInfo);
 				//free(devDetail);                   
-				return INVALID_HANDLE_VALUE;               
+				continue;               
 			}               
 			_HIDD_ATTRIBUTES hidAttributes;               
 			if(!HidD_GetAttributes(hidHandle, &hidAttributes))               
@@ -169,7 +172,6 @@ HANDLE OpenMyHIDDevice(int overlapped)
 			else             
 			{                   
 				CloseHandle(hidHandle);                   
-				++deviceNo;               
 			}           
 		}       
 	}       
